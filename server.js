@@ -227,6 +227,42 @@ app.post('/budget/createUserExpanse', authenticateRequest, async (req, res) => {
   }
 })
 
+app.post('/budget/createUserBudget',authenticateRequest, async (req, res) => {
+  try {
+    let {
+      name,
+      totalAmount,
+      startDate,
+      endDate
+    } = req.body.budget;
+    const newBudget = new Budget({
+      name,
+      totalAmount,
+      startDate: startDate ? startDate : new Date(),
+      endDate: endDate ? endDate : new Date(),
+    });
+    const budgetResponse = await newBudget.save();
+    const userId = req.user.id;
+    const user = await User.findOne({ _id: userId });
+    user.budgets.push(budgetResponse._id);
+    await user.save();
+    const categories = req.body.budget.categories;
+    const allpromises = categories.map(async (category) => {
+      const newCategory = new Category({
+        name: category.name,
+        allocatedAmount: category.amount,
+        spend: category.spend ? category.amount : 0,
+      });
+      const categoryResponse = await newCategory.save();
+      newBudget.categories.push(categoryResponse._id);
+    });
+    await Promise.all(allpromises);
+    await newBudget.save();
+    res.status(200).send({ message: "Budget created successfully", budget: newBudget });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+});
 
 app.get('/budget/getAllUsersExpanseData', authenticateRequest, async (req, res) => {
   try {
